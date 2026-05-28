@@ -1,0 +1,25 @@
+# devel-base リバースプロキシ設定
+#
+# 本番:  DOMAIN_BASE=devel-base.example.com → Let's Encrypt 自動取得
+# ローカル: DOMAIN_BASE=localhost           → Caddy 内部 CA で自動署名
+#   ブラウザで https://gitlab.localhost 等にアクセス可能
+#   (*.localhost は RFC 6761 によりループバックへ自動解決)
+{
+	email {$LE_EMAIL}
+}
+
+gitlab.{$DOMAIN_BASE} {
+	reverse_proxy gitlab:80
+}
+
+jenkins.{$DOMAIN_BASE} {
+	reverse_proxy jenkins:8080
+}
+
+redmine.{$DOMAIN_BASE} {
+	reverse_proxy redmine:3000
+}
+
+sonarqube.{$DOMAIN_BASE} {
+	reverse_proxy sonarqube:9000
+}

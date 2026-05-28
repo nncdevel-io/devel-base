@@ -1,0 +1,35 @@
+# Terraform
+**/.terraform/
+**/.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+*.tfplan
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Terraform variables（機密値を含むため）
+*.tfvars
+*.tfvars.json
+!terraform/envs/*/terraform.tfvars.example
+
+# Docker Compose
+compose/.env
+compose/*.env
+!compose/.env.example
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+.vscode/
+.idea/
+
+# Backup / Log
+*.bak
+*.log

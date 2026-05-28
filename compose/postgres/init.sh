@@ -1,0 +1,23 @@
+#!/bin/bash
+# 共有 PostgreSQL コンテナの初回起動時に Redmine と SonarQube 用の
+# ユーザ・データベースを作成する。
+# /docker-entrypoint-initdb.d/ 配下に配置することで postgres 公式
+# イメージが自動的に実行する（POSTGRES_DB の初期化直後・スーパーユーザ権限）。
+set -euo pipefail
+
+: "${REDMINE_DB_NAME:?REDMINE_DB_NAME is required}"
+: "${REDMINE_DB_USER:?REDMINE_DB_USER is required}"
+: "${REDMINE_DB_PASSWORD:?REDMINE_DB_PASSWORD is required}"
+: "${SONARQUBE_DB_NAME:?SONARQUBE_DB_NAME is required}"
+: "${SONARQUBE_DB_USER:?SONARQUBE_DB_USER is required}"
+: "${SONARQUBE_DB_PASSWORD:?SONARQUBE_DB_PASSWORD is required}"
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-SQL
+	CREATE USER ${REDMINE_DB_USER} WITH PASSWORD '${REDMINE_DB_PASSWORD}';
+	CREATE DATABASE ${REDMINE_DB_NAME} OWNER ${REDMINE_DB_USER}
+	  ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0;
+
+	CREATE USER ${SONARQUBE_DB_USER} WITH PASSWORD '${SONARQUBE_DB_PASSWORD}';
+	CREATE DATABASE ${SONARQUBE_DB_NAME} OWNER ${SONARQUBE_DB_USER}
+	  ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C' TEMPLATE template0;
+SQL
