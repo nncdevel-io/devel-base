@@ -1,0 +1,63 @@
+# devel-base 開発環境の構築パラメータ
+#
+# 本ファイルは以下から共通で参照される単一の環境設定。
+#   - Terraform: terraform/envs/dev/main.tf が yamldecode で読む
+#   - user_data: templatefile() で値を流し込み、EC2 起動時に展開
+#   - 運用スクリプト: yq 等で読み取り
+#
+# 秘密値はここに書かない。
+# DB パスワード・SECRET_KEY_BASE は user_data が EC2 上で openssl 生成する。
+# 証明書は別リポジトリ管理（外部の acme-cert-updater が S3 へ配置）。
+#
+# `<...>` プレースホルダは利用前に確定値で置き換える。
+# 未確定値は docs/verification-ledger.md の V エントリに対応する。
+
+project: devel-base
+region: ap-northeast-1
+
+# ---- ドメインと DNS ----
+domain:
+  # サブドメインは {gitlab,jenkins,redmine,sonarqube}.${base} 形式
+  base: <親ドメイン>
+  hosted_zone_id: <Route 53 zone ID>
+
+# ---- TLS 証明書（読み取り元）----
+# 別リポジトリ管理の acme-cert-updater が更新する S3 上の証明書。
+# 詳細は要件書 8.3 を参照。
+cert:
+  s3_bucket: <cert バケット名>
+  s3_prefix: <cert prefix>
+
+# ---- 本リポジトリが管理する S3（compose / scripts / バックアップ）----
+# backup モジュールが作成し、prefix で用途を分ける。
+storage:
+  config_prefix: config
+  backup_prefix: backups
+
+# ---- ネットワーク ----
+# V-02（VPC CIDR）と V-03（社内 IP CIDR）の確定値を入れる。
+network:
+  vpc_cidr: <VPC CIDR>
+  internal_cidrs:
+    - <cidr1>
+    - <cidr2>
+
+# ---- 運用者連絡先 ----
+contact:
+  email: <運用者メール>
+
+# ---- EC2 ----
+ec2:
+  instance_type: t3.xlarge
+  ebs_size_gb: 150
+  ami_filter:
+    name: al2023-ami-2023*-kernel-*-x86_64
+    owners:
+      - amazon
+
+# ---- 起動停止スケジュール（EventBridge Scheduler）----
+# JST 平日 8:00-22:00 = UTC 23:00（日-木）start / 13:00（月-金）stop
+schedule:
+  start_cron: cron(0 23 ? * SUN-THU *)
+  stop_cron: cron(0 13 ? * MON-FRI *)
+  timezone: Asia/Tokyo

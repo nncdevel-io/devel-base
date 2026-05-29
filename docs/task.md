@@ -58,6 +58,13 @@
 | TASK-031 | ⏳ | ネットワーク構成図とコンテナ構成図を作成する | TASK-012,TASK-034 |
 | TASK-032 | ✅ | IaC 検証ハーネス候補（conftest 等）を比較し採用ツールを選定する | - |
 | TASK-033 | ⏳ | 採用ハーネスをリポジトリに組み込み既存成果物で通過させる | TASK-032 |
+| TASK-036 | ✅ | 環境設定 YAML（`config/dev.yaml`）のテンプレートを作成する | TASK-001 |
+| TASK-037 | ✅ | 要件書 8.3 を「TLS 静的証明書 + S3 配布」に確定する | TASK-006,TASK-007 |
+| TASK-038 | ✅ | 要件書 9.4 を「`config/*.yaml` + `aws_s3_object` 配布」に確定する | TASK-036 |
+| TASK-039 | ✅ | `gitlab-runner` サービス追加に伴い要件書 3.4・4.x を更新する | TASK-014 |
+| TASK-040 | 🚧 | user_data を `templatefile()` 化し systemd unit・cert fetch timer・`.env` 生成を組み込む | TASK-008,TASK-036,TASK-037 |
+| TASK-041 | ⏳ | `app_deploy` モジュール（`aws_s3_object` で `compose/` `scripts/` を S3 へ put）を実装する | TASK-007,TASK-014 |
+| TASK-042 | ✅ | README.md を利用者視点に再編し、設計詳細を要件書に移行する | TASK-037,TASK-038 |
 
 ## タスク詳細
 
@@ -262,6 +269,73 @@
   する
 - 注意: CI（GitHub Actions 等）への組み込みは別タスク／Backlog として
   扱い、本タスクではローカル実行手順の整備までで完結する
+
+### TASK-036
+
+- 補足: 環境依存の非機密パラメータ（ドメイン・ゾーン ID・CIDR・バケット名・
+  メール・インスタンスタイプ等）を `config/dev.yaml` に集約する。
+  Terraform 側は `yamldecode(file(...))` で読み込み、tfvars は原則として
+  使わない。機密値（DB パスワード等）は YAML に書かず user_data 側で
+  `openssl` 生成する
+- 注意: V-01 〜 V-03 の未確定値はプレースホルダ（`<...>`）で書き出し、
+  V エントリ確定とともに埋める
+- 成果物（2026-05-29）: `config/dev.yaml` を作成。
+  project / region / domain / cert / storage / network / contact / ec2 /
+  schedule の 9 セクションに分割。`yq eval` で構文 OK
+
+### TASK-037
+
+- 補足: 要件書 8.3 を「Let's Encrypt 自動取得（HTTP-01）」から
+  「外部リポジトリの `acme-cert-updater` が S3 配置 → EC2 が systemd timer
+  で fetch → Caddy 静的 tls」に書き換える。8.3.1（配布フロー）と
+  8.3.2（取り決め）の小節を追加する
+- 注意: 証明書取得・更新は本リポジトリの管理対象外。devel-base 側の
+  fetch・reload 機構のみを設計範囲とする
+
+### TASK-038
+
+- 補足: 要件書 9.4 を「Systems Manager または Git pull」二択提示から
+  「config/*.yaml で環境設定、`aws_s3_object` で `compose/` `scripts/` を
+  S3 配布、user_data から fetch して起動」に確定する
+- 注意: tfvars は原則使わない方針も同時に明文化する
+
+### TASK-039
+
+- 補足: `compose/docker-compose.yml` に追加した `gitlab-runner` サービス
+  （Docker executor、Docker socket bind、mem_limit 512m）を要件書 3.4
+  メモリ表に追加し、4.x 機能要件で役割を明記する。リソース合計の見直しと
+  3.3 でのスケールアップ閾値の補足も行う
+- 注意: gitlab-runner の registration は手作業 Runbook（Phase 3）に
+  含める。CI ジョブ実行は Host docker daemon を共有する（DooD）方針
+
+### TASK-040
+
+- 補足: 既存の `user_data.sh`（Docker・OS チューニング）に以下を追加する:
+  - `aws s3 sync` で `compose/` `scripts/` を `/opt/devel-base/` に取得
+  - `compose/.env` 不在時に `openssl` で機密値を生成
+  - 証明書を S3 から fetch して `/opt/devel-base/certs/` に配置
+  - `devel-base.service`（systemd unit）と `fetch-cert.timer` を作成・有効化
+  - 各値（`domain_base` / `cert_s3_bucket` / `cert_s3_prefix` 等）は
+    `templatefile()` で YAML 値から注入
+- 注意: cloud-init は初回 boot のみ user_data を実行する（V-09 詳細）。
+  2 回目以降は systemd unit が `docker compose up -d` を担保する
+
+### TASK-041
+
+- 補足: `terraform/modules/app_deploy/` を新規作成し、リポ内の `compose/`
+  `scripts/` を `aws_s3_object` で `for_each = fileset(...)` を使って一括
+  put する。`aws_instance` から `depends_on` で参照することで初回 boot
+  までに S3 上のファイルが揃う状態を保証する
+- 注意: `terraform.tfvars` を使わない方針と整合させ、YAML から渡される
+  バケット名・prefix を受ける
+
+### TASK-042
+
+- 補足: README.md は利用者（開発者）向けの記載に絞り、設計の詳細
+  （配布方式・user_data の動作・TLS 取得経路・systemd unit）は要件書
+  および `docs/runbook/` に移す。README は「サービス URL、ログイン方法、
+  稼働時間、問い合わせ、ドキュメントへの導線」を中心とする
+- 注意: ドメインが未確定のため、URL はプレースホルダで書く
 
 ## Backlog一覧
 
