@@ -1,0 +1,58 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":timezone(Asia/Tokyo)",
+    ":dependencyDashboard"
+  ],
+  "labels": ["dependencies", "image-update"],
+  "schedule": ["before 7am on monday"],
+  "prHourlyLimit": 2,
+  "prConcurrentLimit": 5,
+  "rangeStrategy": "pin",
+  "packageRules": [
+    {
+      "description": "コンテナイメージ更新は最低 3 日のソーク時間を確保（不安定リリースの誤検知回避）",
+      "matchManagers": ["docker-compose", "dockerfile", "custom.regex"],
+      "minimumReleaseAge": "3 days"
+    },
+    {
+      "description": "メジャー更新は 7 日ソーク + major ラベル。要件書 6.5・6.7 のメジャーアップグレード手順との接続点",
+      "matchManagers": ["docker-compose", "dockerfile", "custom.regex"],
+      "matchUpdateTypes": ["major"],
+      "minimumReleaseAge": "7 days",
+      "addLabels": ["major"]
+    },
+    {
+      "description": "ローカルビルドの devel-base/redmine タグは docker-compose マネージャでは無効化。Redmine 本体バージョンは customManagers と Dockerfile FROM 行で一元管理",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["devel-base/redmine"],
+      "enabled": false
+    },
+    {
+      "description": "GitLab CE はマイナーとパッチを別 PR にする（パッチは DB マイグレーション無しの場合があり、要件書 6.5.2 のタグ巻き戻しロールバックが可能なため迅速適用を選択肢に残す）",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["gitlab/gitlab-ce"],
+      "separateMinorPatch": true
+    },
+    {
+      "description": "SonarQube Community Edition のタグは MAJOR.MINOR.PATCH.BUILD-community 形式。Renovate にこの形式を教える",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["sonarqube"],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)\\.(?<build>\\d+)-community$"
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "compose/docker-compose.yml の REDMINE_VERSION（build.args）と devel-base/redmine:X.Y.Z（image:）を、Renovate 標準の Dockerfile マネージャが追跡する FROM redmine:${REDMINE_VERSION} と同期更新する",
+      "managerFilePatterns": ["/^compose/docker-compose\\.ya?ml$/"],
+      "matchStrings": [
+        "REDMINE_VERSION:\\s*(?<currentValue>\\S+)",
+        "devel-base/redmine:(?<currentValue>\\S+)"
+      ],
+      "depNameTemplate": "redmine",
+      "datasourceTemplate": "docker"
+    }
+  ]
+}

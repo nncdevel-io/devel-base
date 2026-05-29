@@ -30,17 +30,17 @@
 | TASK-015 | ✅ | .env.example（環境変数テンプレート）を作成する | TASK-014 |
 | TASK-016 | ✅ | Redmine カスタム Dockerfile を作成する | TASK-002 |
 | TASK-017 | ✅ | プラグイン bundle install と db migrate の起動スクリプトを作成する | TASK-016 |
-| TASK-018 | ⏳ | Docker Compose で初回起動し 4 サービスの疎通を確認する | TASK-013,TASK-014,TASK-015,TASK-017 |
+| TASK-018 | 🧪 | Docker Compose で初回起動し 4 サービスの疎通を確認する | TASK-013,TASK-014,TASK-015,TASK-017 |
 | TASK-024 | ⏳ | healthcheck.sh（4 サービスの稼働確認）を作成する | TASK-018 |
 | TASK-025 | ⏳ | backup-all.sh（GitLab・Jenkins・Redmine の日次バックアップ）を作成する | TASK-018 |
 | TASK-026 | ⏳ | restore.sh（バックアップからの復元手順）を作成する | TASK-025 |
-| TASK-028 | ⏳ | Renovate Bot でイメージタグ更新検知の MR 自動生成を設定する | TASK-014 |
-| TASK-003 | ⏳ | Terraform バックエンド用の S3 と DynamoDB を構築する | TASK-001 |
+| TASK-028 | ✅ | Renovate Bot でイメージタグ更新検知の MR 自動生成を設定する | TASK-014 |
+| TASK-003 | 🧪 | Terraform バックエンド用の S3 と DynamoDB を構築する | TASK-001 |
 | TASK-004 | ⏳ | network モジュール（VPC・Subnet・IGW・VPC Endpoint）を実装する | TASK-002,TASK-003 |
 | TASK-005 | ⏳ | security モジュール（Security Group・IAM Role）を実装する | TASK-004 |
-| TASK-006 | ⏳ | route53 モジュール（Hosted Zone・A レコード）を実装する | TASK-002 |
-| TASK-007 | ⏳ | backup モジュール（S3 バケット・ライフサイクル）を実装する | TASK-002 |
-| TASK-008 | ⏳ | EC2 user_data スクリプト（Docker・OS チューニング）を作成する | TASK-002 |
+| TASK-006 | ✅ | route53 モジュール（Hosted Zone・A レコード）を実装する | TASK-002 |
+| TASK-007 | ✅ | backup モジュール（S3 バケット・ライフサイクル）を実装する | TASK-002 |
+| TASK-008 | ✅ | EC2 user_data スクリプト（Docker・OS チューニング）を作成する | TASK-002 |
 | TASK-009 | ⏳ | ec2_host モジュール（EC2・EIP・EBS）を実装する | TASK-005,TASK-008 |
 | TASK-010 | ⏳ | scheduler モジュール（EventBridge Scheduler 起動停止）を実装する | TASK-009 |
 | TASK-011 | ⏳ | envs/dev エントリーポイント（main.tf・variables.tf・tfvars）を実装する | TASK-004,TASK-005,TASK-006,TASK-007,TASK-009,TASK-010 |
@@ -54,6 +54,8 @@
 | TASK-029 | ⏳ | 構築手順書を作成する | TASK-012,TASK-018 |
 | TASK-030 | ⏳ | 運用手順書（起動停止・バックアップ・復旧・更新）を作成する | TASK-021,TASK-022,TASK-023,TASK-024,TASK-026,TASK-027 |
 | TASK-031 | ⏳ | ネットワーク構成図とコンテナ構成図を作成する | TASK-012,TASK-018 |
+| TASK-032 | ✅ | IaC 検証ハーネス候補（conftest 等）を比較し採用ツールを選定する | - |
+| TASK-033 | ⏳ | 採用ハーネスをリポジトリに組み込み既存成果物で通過させる | TASK-032 |
 
 ## タスク詳細
 
@@ -66,6 +68,13 @@
 
 - 補足: バックエンドは S3 + DynamoDB ロック。バックエンド自体は Terraform 管理外で構築する
 - 注意: バックエンド用 S3 と TASK-007 のバックアップ用 S3 は別バケット
+- 成果物（2026-05-29）: `scripts/bootstrap-tf-backend.sh` を作成。
+  ap-northeast-1 で `devel-base-tfstate-<account-id>` バケット
+  （バージョニング・パブリックアクセス遮断・AES256 暗号化・
+  noncurrent 90 日 expire）と `devel-base-tfstate-lock` テーブル
+  （PAY_PER_REQUEST・deletion-protection 有効）を冪等構築する
+- 残作業: 対象 AWS アカウントの認証情報下で
+  `./scripts/bootstrap-tf-backend.sh` を実行すること（運用作業）
 
 ### TASK-004
 
@@ -129,6 +138,13 @@
 ### TASK-018
 
 - 補足: 4 サブドメインへブラウザアクセスし、各サービスのログイン画面到達まで確認
+- 進捗（2026-05-29）: ローカルスモークテスト範囲は完了
+  （compose 構文検証、`.env` テンプレート整備、SonarQube タグ修正）。
+  詳細は `docs/verification-ledger.md` の「TASK-018 ローカル疎通検証の所見」参照
+- 残作業: 実機（TASK-012 完了後の t3.xlarge）で 4 サービス起動・
+  ブラウザ確認・V-08 メモリ実測。ローカル Docker Desktop での
+  起動はメモリ不足（7.6 GB < 13.5 GB）と containerd 画像ストアの
+  既知バグにより不可
 
 ### TASK-019
 
@@ -174,6 +190,15 @@
 
 - 補足: docker-compose.yml の image タグを監視し、リリースノート付きで MR 自動作成
 - 注意: 反映自体は手動運用（運用窓確保のため）
+- 成果物（2026-05-29）: リポジトリルートに `renovate.json` を配置。
+  対象は 5 サービス（caddy / gitlab-ce / jenkins / sonarqube / postgres）と
+  Redmine の 3 箇所同期（Dockerfile FROM・compose の `args.REDMINE_VERSION`・
+  `image: devel-base/redmine:X.Y.Z`）。SonarQube は
+  `MAJOR.MINOR.PATCH.BUILD-community` の独自バージョニング、GitLab CE は
+  マイナーとパッチを別 PR 化。自動マージは無効（既定）。
+  `renovate-config-validator` で構成検証済
+- 残作業: GitHub 側で Mend Renovate App をリポジトリに有効化する
+  運用作業（リポジトリ管理者が GitHub Apps 画面で実施）
 
 ### TASK-029
 
@@ -190,6 +215,31 @@
 - 補足: 要件書 3.1 節のアーキテクチャ図をベースに、ネットワーク構成図
   （VPC・サブネット・SG・EIP・DNS）と Docker コンテナ構成図
   （Caddy 経由のリバプロと 4 サービスの関係）を作成
+
+### TASK-032
+
+- 補足: 対象は Terraform モジュール・Docker Compose・Dockerfile と
+  プロジェクト固有ポリシー（SSH 非開放、latest タグ禁止、メモリ上限明示
+  などの要件書 6.2・8.2.3 由来の規約）。候補は conftest（OPA/Rego）、
+  tflint、tfsec、checkov、hadolint、trivy config 等を比較対象とする
+- 注意: shellcheck と markdownlint-cli2 はすでに運用中のため再選定の
+  対象外。成果物は採用ツール・運用パターン・既存成果物への適用範囲を
+  示した選定メモ
+- 成果物（2026-05-29）: `docs/adr/0001-iac-verification-harness.md`。
+  採用は案 C（tflint + Trivy + Hadolint + Conftest）。ルールロジック
+  記述は Rego（Conftest + Trivy Custom Checks）に統一され、tflint /
+  Hadolint は組込ルールの ON/OFF 設定のみで実質 DSL 1 系統に収束する
+  ことを判断根拠とした
+
+### TASK-033
+
+- 補足: 設定ファイルをリポジトリに配置し、実行コマンドを
+  CLAUDE.md「検証コマンド」節に反映する。既存の Terraform モジュール
+  （route53 / backup / ec2_host/user_data）と `compose/docker-compose.yml`・
+  `compose/redmine/Dockerfile` に対して全項目パスする状態を完了条件と
+  する
+- 注意: CI（GitHub Actions 等）への組み込みは別タスク／Backlog として
+  扱い、本タスクではローカル実行手順の整備までで完結する
 
 ## Backlog一覧
 

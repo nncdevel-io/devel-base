@@ -102,7 +102,7 @@ services:
         condition: service_healthy
 
   sonarqube:
-    image: sonarqube:25.1.0-community
+    image: sonarqube:25.1.0.102122-community
     restart: unless-stopped
     mem_limit: 3g
     environment:
