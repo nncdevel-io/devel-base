@@ -1,4 +1,4 @@
-ARG REDMINE_VERSION=5.1.4
+ARG REDMINE_VERSION=6.1.2
 FROM redmine:${REDMINE_VERSION}
 
 COPY plugin-migrate-and-start.sh /usr/local/bin/plugin-migrate-and-start.sh

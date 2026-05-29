@@ -23,7 +23,8 @@ TASK-001 の成果物。
 | V-05 | バックアップ取得時の GitLab 瞬断許容可否 | ⏳ | 利用者代表 | `gitlab-backup create` 実行中の動作確認 |
 | V-06 | GitLab Authentication Plugin と GitLab CE のバージョン互換性 | ⏳ | 構築担当（自分） | 採用 GitLab CE バージョン確定後に確認 |
 | V-07 | redmine_oauth プラグインと Redmine 本体バージョン追従状況 | ⏳ | 構築担当（自分） | 採用 Redmine バージョン確定後に確認 |
-| V-08 | t3.xlarge での 4 サービス同居時のメモリ使用量 | 📅 | 構築担当（自分） | 構築後に実測（TASK-018 以降） |
+| V-08 | t3.xlarge での 4 サービス同居時のメモリ使用量 | 📅 | 構築担当（自分） | 構築後に実測（TASK-035 で採取） |
+| V-09 | user_data 冪等性と systemd 補完 | ⏳ | 構築担当（自分） | cloud-init は EC2 stop/start で user_data を再実行しない。平日 8-22 時 JST 起動停止運用では、毎回の boot を `devel-base.service`（systemd unit）が担保する必要がある。詳細は V-09 詳細参照 |
 
 ## V-03 詳細: 社内 IP CIDR
 
@@ -37,6 +38,39 @@ Security Group Inbound（443/80）で許可する社内 IP。
 | `20.89.59.132/32` | VDI 環境 |
 | `20.89.58.85/32` | VDI 環境（予備） |
 
+## V-09 詳細: user_data 冪等性と systemd 補完
+
+cloud-init はインスタンス初回 boot 時のみ user_data を実行し、
+2 回目以降の boot では `/var/lib/cloud/instance/sem/` に残るマーカーにより
+skip する（参考: cloud-init 公式ドキュメント）。
+本構成は要件書 5.x の運用方針として **平日 8:00-22:00 JST のみ稼働** を
+EventBridge Scheduler で実現するため、毎日の EC2 start 時にも
+`docker compose up -d` が必ず走る仕組みが必要になる。
+
+### 採用方針
+
+- **user_data**: 初回 boot 限定で「OS 初期化」「ファイル配置」
+  「systemd unit / timer の作成と enable」までを実行
+- **systemd unit `devel-base.service`**: 毎回の boot で
+  `docker compose up -d` を実行
+- **systemd timer `fetch-cert.timer`**: 稼働中に日次で TLS 証明書を
+  S3 から取得し Caddy をリロード
+- **`.env` 再生成防止**: user_data の `.env` 生成は
+  「`/opt/devel-base/compose/.env` が存在しないとき限定」とし、
+  仮に再実行されても既存 DB との不整合を避ける
+
+### 確認方法
+
+- TASK-008 の user_data 実装時に上記の systemd unit / timer を含めること
+- 構築後の運用初日に、EC2 stop → start を 1 回実行し
+  `journalctl -u devel-base.service` で起動を確認
+
+### 関連箇所
+
+- `terraform/modules/ec2_host/user_data.sh`
+- 要件書 5.x（稼働時間）
+- README.md 「TLS 証明書」「平時の運用」
+
 ## 完了条件
 
 - すべての項目が ✅ または 📅 になっていること
@@ -47,7 +81,7 @@ Security Group Inbound（443/80）で許可する社内 IP。
 - TASK-001: 本台帳の作成・更新
 - TASK-004: V-02（VPC CIDR）確定後に着手可能
 - TASK-005: V-03（社内 IP CIDR）を反映
-- TASK-018: V-08（メモリ実測）の起点
+- TASK-035: V-08（メモリ実測）の採取・記録
 - TASK-019: V-01（Entra ID）確定後に着手可能
 
 ## TASK-018 ローカル疎通検証の所見（2026-05-29）
@@ -92,9 +126,10 @@ TASK-028（Renovate Bot）でのバージョン追従ロジックで明示的に
 - 4 サブドメインへのブラウザアクセス確認（TASK-018 補足の
   完了条件）は GUI 操作を伴うためエージェントでは実施不可
 
-### 推奨対応
+### 推奨対応（2026-05-29 にタスク分割で決着）
 
-- TASK-018 の最終 ✅ 化は **TASK-012（AWS 一式構築）完了後の
-  実機検証時** に行う。ローカルでの構文・タグ・envテンプレートの
-  検証は完了として、ステータスは 🧪（確認待ち）に留める
-- V-08（メモリ実測）は TASK-018 実機検証フェーズで採取する
+- TASK-018 は **ローカル可検証範囲（compose 構文・タグ整合・
+  envテンプレート）に縮退** して ✅ 化
+- 実機（TASK-012 後の t3.xlarge）での 4 サービス起動とブラウザ疎通
+  確認は **TASK-034** に分離
+- V-08（メモリ実測）は **TASK-035** に分離（DependsOn: TASK-034）

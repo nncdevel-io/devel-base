@@ -18,6 +18,7 @@ volumes:
   gitlab-data:
   gitlab-logs:
   jenkins-home:
+  gitlab-runner-config:
   redmine-files:
   redmine-plugins:
   redmine-config:
@@ -27,7 +28,7 @@ volumes:
 
 services:
   caddy:
-    image: caddy:2
+    image: caddy:2.11.3
     restart: unless-stopped
     mem_limit: 256m
     ports:
@@ -47,7 +48,7 @@ services:
       - sonarqube
 
   gitlab:
-    image: gitlab/gitlab-ce:17.6.1-ce.0
+    image: gitlab/gitlab-ce:19.0.1-ce.0
     restart: unless-stopped
     mem_limit: 5g
     shm_size: 256m
@@ -68,7 +69,7 @@ services:
       - gitlab-logs:/var/log/gitlab
 
   jenkins:
-    image: jenkins/jenkins:2.479.2-lts
+    image: jenkins/jenkins:2.555.2-lts
     restart: unless-stopped
     mem_limit: 3g
     environment:
@@ -78,12 +79,26 @@ services:
     volumes:
       - jenkins-home:/var/jenkins_home
 
+  # GitLab CI 用 Runner。Docker executor で host の Docker socket を共有し、
+  # CI ジョブは別コンテナとして実行する。登録は初回のみ手動:
+  #   docker compose exec gitlab-runner gitlab-runner register \
+  #     --url https://gitlab.${DOMAIN_BASE} --registration-token <TOKEN>
+  gitlab-runner:
+    image: gitlab/gitlab-runner:v19.0.0
+    restart: unless-stopped
+    mem_limit: 512m
+    volumes:
+      - gitlab-runner-config:/etc/gitlab-runner
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - gitlab
+
   redmine:
     build:
       context: ./redmine
       args:
-        REDMINE_VERSION: 5.1.4
-    image: devel-base/redmine:5.1.4
+        REDMINE_VERSION: 6.1.2
+    image: devel-base/redmine:6.1.2
     restart: unless-stopped
     mem_limit: 1g
     environment:
@@ -102,7 +117,7 @@ services:
         condition: service_healthy
 
   sonarqube:
-    image: sonarqube:25.1.0.102122-community
+    image: sonarqube:26.5.0.122743-community
     restart: unless-stopped
     mem_limit: 3g
     environment:
@@ -125,7 +140,7 @@ services:
   # 別 DB（redmine / sonarqube）に接続する。
   # 初期化スクリプト postgres/init.sh が両者のユーザと DB を作成する。
   postgres:
-    image: postgres:15
+    image: postgres:18
     restart: unless-stopped
     mem_limit: 1g
     environment:

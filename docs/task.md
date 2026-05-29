@@ -30,7 +30,7 @@
 | TASK-015 | ✅ | .env.example（環境変数テンプレート）を作成する | TASK-014 |
 | TASK-016 | ✅ | Redmine カスタム Dockerfile を作成する | TASK-002 |
 | TASK-017 | ✅ | プラグイン bundle install と db migrate の起動スクリプトを作成する | TASK-016 |
-| TASK-018 | 🧪 | Docker Compose で初回起動し 4 サービスの疎通を確認する | TASK-013,TASK-014,TASK-015,TASK-017 |
+| TASK-018 | ✅ | Docker Compose 構文・タグ・env のローカル整合を確定する | TASK-013,TASK-014,TASK-015,TASK-017 |
 | TASK-024 | ⏳ | healthcheck.sh（4 サービスの稼働確認）を作成する | TASK-018 |
 | TASK-025 | ⏳ | backup-all.sh（GitLab・Jenkins・Redmine の日次バックアップ）を作成する | TASK-018 |
 | TASK-026 | ⏳ | restore.sh（バックアップからの復元手順）を作成する | TASK-025 |
@@ -45,15 +45,17 @@
 | TASK-010 | ⏳ | scheduler モジュール（EventBridge Scheduler 起動停止）を実装する | TASK-009 |
 | TASK-011 | ⏳ | envs/dev エントリーポイント（main.tf・variables.tf・tfvars）を実装する | TASK-004,TASK-005,TASK-006,TASK-007,TASK-009,TASK-010 |
 | TASK-012 | ⏳ | Terraform apply で AWS 基盤一式を構築する | TASK-011 |
-| TASK-019 | ⏳ | GitLab と Entra ID の SAML/OIDC SSO を設定する | TASK-018 |
+| TASK-034 | ⏳ | 実機 EC2 で Docker Compose を起動し 4 サブドメイン疎通を確認する | TASK-012,TASK-018 |
+| TASK-035 | ⏳ | V-08（4 サービス同居時メモリ使用量）を実測しレジャーを更新する | TASK-034 |
+| TASK-019 | ⏳ | GitLab と Entra ID の SAML/OIDC SSO を設定する | TASK-034 |
 | TASK-020 | ⏳ | GitLab に OAuth Application を 3 件登録する | TASK-019 |
 | TASK-021 | ⏳ | Jenkins に GitLab Authentication Plugin で OAuth 認証を設定する | TASK-020 |
 | TASK-022 | ⏳ | Redmine に redmine_oauth プラグインで GitLab OAuth を設定する | TASK-020 |
 | TASK-023 | ⏳ | SonarQube に GitLab OAuth 認証を設定する | TASK-020 |
-| TASK-027 | ⏳ | バックアップ取得とリストアの動作検証を実施する | TASK-025,TASK-026 |
-| TASK-029 | ⏳ | 構築手順書を作成する | TASK-012,TASK-018 |
+| TASK-027 | ⏳ | バックアップ取得とリストアの動作検証を実施する | TASK-025,TASK-026,TASK-034 |
+| TASK-029 | ⏳ | 構築手順書を作成する | TASK-012,TASK-034 |
 | TASK-030 | ⏳ | 運用手順書（起動停止・バックアップ・復旧・更新）を作成する | TASK-021,TASK-022,TASK-023,TASK-024,TASK-026,TASK-027 |
-| TASK-031 | ⏳ | ネットワーク構成図とコンテナ構成図を作成する | TASK-012,TASK-018 |
+| TASK-031 | ⏳ | ネットワーク構成図とコンテナ構成図を作成する | TASK-012,TASK-034 |
 | TASK-032 | ✅ | IaC 検証ハーネス候補（conftest 等）を比較し採用ツールを選定する | - |
 | TASK-033 | ⏳ | 採用ハーネスをリポジトリに組み込み既存成果物で通過させる | TASK-032 |
 
@@ -137,14 +139,16 @@
 
 ### TASK-018
 
-- 補足: 4 サブドメインへブラウザアクセスし、各サービスのログイン画面到達まで確認
-- 進捗（2026-05-29）: ローカルスモークテスト範囲は完了
-  （compose 構文検証、`.env` テンプレート整備、SonarQube タグ修正）。
+- 補足: 対象は docker-compose.yml 構文検証・`.env` テンプレート整備・
+  公式イメージタグの存在性確認まで。実機での 4 サービス起動と
+  ブラウザ疎通確認は TASK-034、メモリ実測は TASK-035 に分離
+  （2026-05-29 にスコープ確定）
+- 注意: ローカル Docker Desktop は containerd 画像ストアの既知バグで
+  Jenkins / Redmine の pull が失敗するため、本タスクでは pull 試行
+  までで起動は対象外
+- 成果物（2026-05-29）: `docker compose config` 通過、SonarQube タグ
+  修正（`25.1.0-community` → `25.1.0.102122-community`）。
   詳細は `docs/verification-ledger.md` の「TASK-018 ローカル疎通検証の所見」参照
-- 残作業: 実機（TASK-012 完了後の t3.xlarge）で 4 サービス起動・
-  ブラウザ確認・V-08 メモリ実測。ローカル Docker Desktop での
-  起動はメモリ不足（7.6 GB < 13.5 GB）と containerd 画像ストアの
-  既知バグにより不可
 
 ### TASK-019
 
@@ -185,6 +189,24 @@
 ### TASK-027
 
 - 補足: バックアップ取得・S3 アップロード・S3 からのダウンロード・復元の一連を検証
+
+### TASK-034
+
+- 補足: TASK-012 で構築した t3.xlarge 上で `docker compose up -d` 実行、
+  caddy / gitlab / jenkins / redmine / sonarqube / postgres の全コンテナ
+  Up を確認後、4 サブドメイン
+  （gitlab / jenkins / redmine / sonarqube.devel-base.example.com）へ
+  ブラウザアクセスし各ログイン画面到達まで確認
+- 注意: 本番 AMI（Amazon Linux 2023 + Docker CE）ではローカル
+  Docker Desktop の containerd バグは再現しない見込み
+
+### TASK-035
+
+- 補足: `docker stats` 等で 4 サービス同居時のメモリ使用量を 1 時間以上
+  サンプリングし、`docs/verification-ledger.md` の V-08 を 📅 → ✅ に更新
+- 注意: t3.xlarge 16 GB に対し要件書 3.4 のメモリ上限合計 約 13.5 GB が
+  実用上収まるかを判定する。逼迫していれば BACKLOG-004（t3.2xlarge
+  スケールアップ）の着手を提案する
 
 ### TASK-028
 
